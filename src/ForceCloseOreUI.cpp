@@ -85,8 +85,8 @@ std::string GetModsFilesPath(JNIEnv *env) {
 SKY_AUTO_STATIC_HOOK(
     Hook1, memory::HookPriority::Normal,
     std::initializer_list<const char *>(
-        {"? ? ? D1 ? ? ? A9 ? ? ? 91 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? "
-         "A9 ? ? ? D5 ? ? ? F9 ? ? ? F8 ? ? ? 39 ? ? ? 34 ? ? ? 12"}),
+        {"? ? ? D1 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? "
+         "91 ? ? ? D5 ? ? ? F9 ? ? ? F8 ? ? ? 39 ? ? ? 34 ? ? ? 12"}),
     int, void *_this, JavaVM *vm) {
 
   vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_4);
@@ -114,38 +114,17 @@ public:
    {""}
 
 #elif __aarch64__
+
 #define OREUI_PATTERN                                                                     \
      std::initializer_list<const char *>({                                                \
-    "? ? ? D1 ? ? ? A9 ? ? ? 91 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 E8 03 03 AA" \
-  })
-#define OREUI_registerToggle                                                                                                  \
-     std::initializer_list<const char *>({                                                                               \
-    "? ? ? D1 ? ? ? A9 ? ? ? 91 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? D5 F7 03 00 AA ? ? ? F9 F4 03 03 AA F3 03 00 AA"    \
-  })                                                                                                                     \
-
-  #define OREUI_getBool                                                                                               \
-     std::initializer_list<const char *>({                                                                               \
-    "? ? ? F9 ? ? ? F9 ? ? ? B4 E0 03 08 AA ? ? ? F9 ? ? ? F9 ? ? ? B5 ? ? ? 39"    \
-  })                                                                                                                     \
+      "? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 FD 03 00 91 ? ? ? D1 ? ? ? D5 FB 03 00 AA F5 03 07 AA", \
+      "? ? ? D1 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? 91 ? ? ? F9 ? ? ? D5 FB 03 00 AA ? ? ? F9 F5 03 07 AA", \
+      "? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 ? ? ? A9 FD 03 00 91 ? ? ? D1 ? ? ? D5 FA 03 00 AA F6 03 07 AA" \
+  })                                                                                                                    \
 
 #elif _WIN32
-#define OREUI_PATTERN                                                                                                    \
-     std::initializer_list<const char *>({                                                                               \
-    "40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 48 8B 05 ? ? ? ? 48 33 C4 48 89 44 24 ? 49 8B E9 4C 89 44 24"    \
-  })                                                                                                                     \
 
-#define OREUI_registerToggle                                                                                                  \
-     std::initializer_list<const char *>({                                                                               \
-    "89 54 24 ? 53 55 56 57 41 54 41 56 41 57 48 83 EC 60 48 8B 05 ? ? ? ? 48 33 C4 48 89 44 24 ? 49 8B F1"    \
-  })                                                                                                                     \
-
-  #define OREUI_getBool                                                                                               \
-     std::initializer_list<const char *>({                                                                               \
-    "48 8B 41 ? 48 8B 90 ? ? ? ? 48 85 D2 74 ? 48 8B 4A"    \
-  })                                                                                                                     \
-
-
- #endif
+#endif
 
 // clang-format on
 
@@ -153,26 +132,6 @@ namespace {
 
 #if defined(_WIN32)
 
-std::string getLocalAppDataPath() {
-  char path[260];
-  size_t len;
-  getenv_s(&len, path, sizeof(path), "LOCALAPPDATA");
-  if (len > 0) {
-    return std::string(path);
-  }
-  char userProfile[260];
-  getenv_s(&len, userProfile, sizeof(userProfile), "USERPROFILE");
-  if (len > 0) {
-    return std::string(userProfile) + "\\AppData\\Local";
-  }
-  return ".";
-}
-
-std::string getUWPModsDir() {
-  std::string appDataPath = getLocalAppDataPath();
-  std::string uwpMods = appDataPath + "\\mods\\ForceCloseOreUI\\";
-  return uwpMods;
-}
 #endif
 
 bool testDirWritable(const std::string &dir) {
@@ -219,10 +178,21 @@ std::string dirPath = "";
 std::string filePath = dirPath + "config.json";
 bool updated = false;
 
+void saveJson(const std::string &path, const nlohmann::json &j) {
+  std::filesystem::create_directories(
+      std::filesystem::path(path).parent_path());
+  FILE *f = std::fopen(path.c_str(), "w");
+  if (!f) {
+    throw std::runtime_error(path);
+  }
+  std::string jsonStr = j.dump(4);
+  std::fwrite(jsonStr.data(), 1, jsonStr.size(), f);
+  std::fclose(f);
+}
+
 SKY_AUTO_STATIC_HOOK(Hook2, memory::HookPriority::Normal, OREUI_PATTERN, void,
                      void *a1, void *a2, void *a3, void *a4, void *a5, void *a6,
-                     void *a7, void *a8, void *a9, void *a10, OreUi &a11,
-                     void *a12) {
+                     void *a7, void *a8, void *a9, OreUi &a10, void *a11) {
   dirPath = getConfigDir();
   filePath = dirPath + "config.json";
   if (std::filesystem::exists(filePath)) {
@@ -231,7 +201,7 @@ SKY_AUTO_STATIC_HOOK(Hook2, memory::HookPriority::Normal, OREUI_PATTERN, void,
     inFile.close();
   }
 
-  for (auto &data : a11.mConfigs) {
+  for (auto &data : a10.mConfigs) {
     bool value = false;
     if (outputJson.contains(data.first) &&
         outputJson[data.first].is_boolean()) {
@@ -245,13 +215,10 @@ SKY_AUTO_STATIC_HOOK(Hook2, memory::HookPriority::Normal, OREUI_PATTERN, void,
   }
 
   if (updated || !std::filesystem::exists(filePath)) {
-    std::filesystem::create_directories(dirPath);
-    std::ofstream outFile(filePath);
-    outFile << outputJson.dump(4);
-    outFile.close();
+    saveJson(filePath, outputJson);
   }
 
-  origin(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12);
+  origin(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11);
 }
 
 } // namespace
